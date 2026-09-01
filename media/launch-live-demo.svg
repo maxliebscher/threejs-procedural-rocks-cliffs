@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="64" viewBox="0 0 420 64" role="img" aria-labelledby="title desc">
+  <title id="title">Launch the live demo</title>
+  <desc id="desc">Open the interactive Procedural Rock and Cliff Lab</desc>
+  <defs>
+    <linearGradient id="button" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#79bd94"/>
+      <stop offset="1" stop-color="#4f8f69"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="418" height="62" rx="14" fill="url(#button)" stroke="#a7ddba" stroke-opacity=".48"/>
+  <circle cx="38" cy="32" r="18" fill="#102018" fill-opacity=".88"/>
+  <path d="M33 23.5 47 32 33 40.5Z" fill="#dff8e8"/>
+  <text x="70" y="29" fill="#ffffff" font-family="Segoe UI,Arial,sans-serif" font-size="17" font-weight="700">LAUNCH LIVE DEMO</text>
+  <text x="70" y="46" fill="#e2f3e8" font-family="Segoe UI,Arial,sans-serif" font-size="12">Draw, generate and inspect procedural geology</text>
+  <path d="m387 25 7 7-7 7" fill="none" stroke="#ecfff2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

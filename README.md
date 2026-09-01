@@ -4,9 +4,9 @@ An interactive Three.js demonstrator for drawing terrain-bound rock fields and w
 
 This is a focused technical demo rather than a complete terrain editor. It makes the difficult part inspectable: believable fused stone masses that remain closed, deterministic, terrain-aware, and responsive enough for interactive authoring.
 
-## Live demo
+## 🚀 Live demo
 
-**[Launch the interactive GitHub Pages demo →](https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/)**
+[![Launch the interactive Procedural Rock and Cliff Lab](media/launch-live-demo.svg)](https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/)
 
 The demo is static after its Vite build and runs directly on GitHub Pages. Vercel or a custom server is not required.
 
@@ -16,9 +16,7 @@ Opening the source `index.html` directly from `raw.githubusercontent.com` or `fi
 
 ## Demo video
 
-<video src="https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/media/procedural-rocks-cliffs-demo.mp4" controls width="100%" preload="metadata"></video>
-
-**[Open the 14-second procedural rock and cliff workflow video →](https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/media/procedural-rocks-cliffs-demo.mp4)**
+https://github.com/user-attachments/assets/a4e22e55-1b61-4ca7-b3d3-159cf1e2d00f
 
 ## Showcase
 
