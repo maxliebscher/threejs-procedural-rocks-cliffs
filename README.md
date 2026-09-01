@@ -4,20 +4,6 @@ An interactive Three.js demonstrator for drawing terrain-bound rock fields and w
 
 This is a focused technical demo rather than a complete terrain editor. It makes the difficult part inspectable: believable fused stone masses that remain closed, deterministic, terrain-aware, and responsive enough for interactive authoring.
 
-## Showcase
-
-### Procedural cliff
-
-![Procedural granite cliff generated from an editable terrain footprint](media/procedural-cliff-showcase.webp)
-
-### Procedural rock field
-
-![Procedural granite rock field with fused stone masses and separate talus](media/procedural-rock-field-showcase.webp)
-
-### Demo video
-
-[▶ Watch the 14-second procedural rock and cliff workflow](media/procedural-rocks-cliffs-demo.mp4)
-
 ## Live demo
 
 **[Launch the interactive GitHub Pages demo →](https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/)**
@@ -27,6 +13,22 @@ The demo is static after its Vite build and runs directly on GitHub Pages. Verce
 `.github/workflows/deploy-pages.yml` tests, builds, and publishes `dist/`. The Vite base path is relative, so all assets resolve correctly at the current project URL.
 
 Opening the source `index.html` directly from `raw.githubusercontent.com` or `file://` is not supported: the source uses npm modules and must be bundled first.
+
+## Demo video
+
+<video src="https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/media/procedural-rocks-cliffs-demo.mp4" controls width="100%" preload="metadata"></video>
+
+**[Open the 14-second procedural rock and cliff workflow video →](https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/media/procedural-rocks-cliffs-demo.mp4)**
+
+## Showcase
+
+### Procedural cliff
+
+![Procedural granite cliff generated from an editable terrain footprint](media/procedural-cliff-showcase.webp)
+
+### Procedural rock field
+
+![Procedural granite rock field with fused stone masses and separate talus](media/procedural-rock-field-showcase.webp)
 
 ## Run locally
 
