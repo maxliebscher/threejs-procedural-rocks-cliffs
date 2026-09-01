@@ -161,13 +161,9 @@ Three.js is passed into the compiler rather than imported by the field core, whi
 
 `codex-skill/procedural-rocks-cliffs/` contains the portable Codex skill and its technical reference. Copy that folder into a Codex skills directory and invoke `$procedural-rocks-cliffs` when building or reviewing procedural rock fields, cliffs, or terrain-bound stone masses.
 
-## Credits and provenance
+## Credits
 
-- Initial system and representation direction: **OpenAI Codex (Sol)** with **Max Liebscher**.
-- V9 implementation and visual refinement: **Claude Fable** with **Max Liebscher**.
-- Standalone English release, interaction, packaging, documentation, and final QA: **OpenAI Codex** with **Max Liebscher**.
-
-The rock material maps were generated specifically for this project. See `public/assets/rock-materials/SOURCE.md`.
+Created by **Max Liebscher** with **OpenAI Codex (Sol)** and **Claude Fable**. Rock material details are documented in `public/assets/rock-materials/SOURCE.md`.
 
 ## Release status and license
 
