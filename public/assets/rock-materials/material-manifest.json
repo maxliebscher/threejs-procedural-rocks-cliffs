@@ -1,0 +1,43 @@
+{
+  "schema": "landscaping-rock-materials/1.0",
+  "compatibility": {
+    "normalConvention": "OpenGL",
+    "runtimeIntent": "Merge into the existing ground/material SSOT at application integration; no separate shader system."
+  },
+  "referenceImage": null,
+  "assets": [
+    {
+      "id": "landscape_rock_granite",
+      "name": "Granite",
+      "imgUrl": "./assets/rock-materials/granite-albedo.webp",
+      "normalUrl": "./assets/rock-materials/granite-normal-opengl.webp",
+      "roughnessUrl": "./assets/rock-materials/granite-roughness.webp",
+      "tileScaleM": 1.15,
+      "normalStrength": 1.35,
+      "roughness": 0.86,
+      "source": "Project-generated source retained outside the release bundle"
+    },
+    {
+      "id": "landscape_rock_sandstone",
+      "name": "Sandstone",
+      "imgUrl": "./assets/rock-materials/sandstone-albedo.webp",
+      "normalUrl": "./assets/rock-materials/sandstone-normal-opengl.webp",
+      "roughnessUrl": "./assets/rock-materials/sandstone-roughness.webp",
+      "tileScaleM": 1.20,
+      "normalStrength": 1.55,
+      "roughness": 0.93,
+      "source": "Project-generated source retained outside the release bundle"
+    },
+    {
+      "id": "landscape_rock_limestone",
+      "name": "Limestone",
+      "imgUrl": "./assets/rock-materials/limestone-albedo.webp",
+      "normalUrl": "./assets/rock-materials/limestone-normal-opengl.webp",
+      "roughnessUrl": "./assets/rock-materials/limestone-roughness.webp",
+      "tileScaleM": 1.10,
+      "normalStrength": 1.20,
+      "roughness": 0.88,
+      "source": "Project-generated source retained outside the release bundle"
+    }
+  ]
+}

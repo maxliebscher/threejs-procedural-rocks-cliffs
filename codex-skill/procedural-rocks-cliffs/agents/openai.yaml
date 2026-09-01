@@ -1,0 +1,7 @@
+interface:
+  display_name: "Procedural Rocks & Cliffs"
+  short_description: "Build watertight geological masses in Three.js"
+  default_prompt: "Use $procedural-rocks-cliffs to build or review a terrain-bound procedural rock or cliff generator."
+
+policy:
+  allow_implicit_invocation: true

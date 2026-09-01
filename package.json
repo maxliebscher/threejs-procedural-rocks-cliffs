@@ -1,0 +1,25 @@
+{
+  "name": "procedural-rocks-cliffs",
+  "version": "0.1.0",
+  "description": "Interactive Three.js demo and Codex skill for watertight procedural rock fields and cliffs.",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxliebscher/threejs-procedural-rocks-cliffs.git"
+  },
+  "homepage": "https://maxliebscher.github.io/threejs-procedural-rocks-cliffs/",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8791",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 8792",
+    "test": "node tests/topology-smoke.mjs"
+  },
+  "dependencies": {
+    "three": "0.185.0"
+  },
+  "devDependencies": {
+    "vite": "7.3.6"
+  }
+}
