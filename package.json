@@ -14,7 +14,9 @@
     "dev": "vite --host 127.0.0.1 --port 8791",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 8792",
-    "test": "node tests/topology-smoke.mjs"
+    "test": "node tests/topology-smoke.mjs && node --test tests/worker-regression.mjs",
+    "test:build": "npm run build && node tests/production-smoke.mjs",
+    "benchmark:worker": "node tests/worker-benchmark.mjs"
   },
   "dependencies": {
     "three": "0.185.0"
