@@ -52,10 +52,16 @@ button,select,input{font:inherit}button{min-height:34px;border:1px solid transpa
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RefinementWorker } from './src/refinement-worker.js';
+import { hydrateLandscaping } from './src/landscaping-transfer.js';
+import { createTerrainHeight } from './src/landscaping-terrain.js';
 import { planLandscaping } from './src/landscaping-planner.js';
 import { compileLandscapingV10 as compileLandscaping } from './src/landscaping-compiler.js';
 import { createLandscapingTriplanarMaterialsV5, createTriplanarWeightsMaterial } from './src/landscaping-materials.js';
 
+const refinement=new RefinementWorker();
+window.addEventListener('pagehide',invalidateBuild);
+window.addEventListener('pageshow',event=>{if(event.persisted)runBuildCycle()});
 const QUALITY={low:{cell:.30,target:3200},standard:{cell:.20,target:4500},high:{cell:.17,target:6500},showcase:{cell:.15,target:8000}};
 const query=new URLSearchParams(location.search),valid=(value,list,fallback)=>list.includes(value)?value:fallback;
 const scene=new THREE.Scene();scene.background=new THREE.Color('#0d1210');scene.fog=new THREE.Fog('#0d1210',25,60);
@@ -80,7 +86,7 @@ let shape='',authored=[],drawing=false,editing=query.get('debug')==='authoring'|
 
 function applyAppearance({rebuildGround=true}={}){scene.background.set('#0d1210');scene.fog.color.set('#0d1210');renderer.toneMappingExposure=1.22;groundMaterial.opacity=.08;groundMaterial.needsUpdate=true;if(rebuildGround&&lastPlan)buildTerrain();applyLight();requestRender()}
 
-function baseHeight(x,z){if(fields.terrain.value==='slope')return x*.055+z*.018;if(fields.terrain.value==='cross')return x*.018+z*.19;if(fields.terrain.value==='waves')return Math.sin(x*.52)*.12+Math.cos(z*.63)*.08+Math.sin((x+z)*.27)*.05;return 0}
+function baseHeight(x,z){return createTerrainHeight(fields.terrain.value)(x,z)}
 function optionsForMode(){return[['wedge','Wedge'],['kidney','Kidney'],['oval','Oval'],['island','Island']]}
 function updateShapeOptions(wanted){const options=optionsForMode();fields.shape.innerHTML=options.map(([value,label])=>`<option value="${value}">${label}</option>`).join('');shape=options.some(entry=>entry[0]===wanted)?wanted:options[0][0];fields.shape.value=shape;syncChoices('shape')}
 const cycleIcons={shape:'<path d="M3 12c1-5 4-8 9-8s8 3 9 8-2 8-8 8-9-3-10-8Z"/><path d="M7 8c2-1 4-1 6 0"/>',rockType:'<path d="m4 18 2-9 6-5 7 4 1 8-5 4H8Z"/><path d="m6 9 6 3 7-4M12 12l3 8"/>',crown:'<path d="M3 18 7 8l5-4 5 5 4 9Z"/><path d="M7 8h10"/>',terrain:'<path d="M3 16c3-5 5 0 8-4s5 1 10-3M3 20c4-4 7 1 11-3 3-3 5 0 7-2"/>',quality:'<path d="M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z"/>',debug:'<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/>'};
@@ -97,7 +103,7 @@ function densePath(points,closed){if(points.length<3)return points;const source=
 function pointSegmentDistance(point,a,b){const dx=b.x-a.x,dz=b.z-a.z,length2=dx*dx+dz*dz;if(!length2)return Math.hypot(point.x-a.x,point.z-a.z);const t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.z-a.z)*dz)/length2));return Math.hypot(point.x-(a.x+dx*t),point.z-(a.z+dz*t))}
 function simplifyPath(points,tolerance){if(points.length<4)return points.slice();let farthest=0,index=-1;for(let i=1;i<points.length-1;i+=1){const distance=pointSegmentDistance(points[i],points[0],points.at(-1));if(distance>farthest){farthest=distance;index=i}}if(farthest<=tolerance)return[points[0],points.at(-1)];const left=simplifyPath(points.slice(0,index+1),tolerance),right=simplifyPath(points.slice(index),tolerance);return left.slice(0,-1).concat(right)}
 function activePath(){return densePath(authored,true)}
-function terrainFunction(){return(x,z)=>baseHeight(x,z)}
+function terrainFunction(){return createTerrainHeight(fields.terrain.value)}
 function disposeObject(object){if(!object)return;scene.remove(object);object.geometry?.dispose?.()}
 function cutFactor(x,z,cut){if(!cut?.path?.length)return 0;let bestD=Infinity,signed=0,along=0;for(let i=0;i<cut.path.length-1;i+=1){const a=cut.path[i],b=cut.path[i+1],dx=b.x-a.x,dz=b.z-a.z,l2=dx*dx+dz*dz;if(l2<1e-8)continue;const rt=((x-a.x)*dx+(z-a.z)*dz)/l2,t=Math.max(0,Math.min(1,rt)),px=a.x+dx*t,pz=a.z+dz*t,ox=x-px,oz=z-pz,d=Math.hypot(ox,oz);if(d>=bestD)continue;const inv=1/Math.sqrt(l2);bestD=d;signed=(ox*-dz*inv+oz*dx*inv)*cut.sign;along=(a.distance||0)+t*((b.distance||0)-(a.distance||0))}const F=.6,s=(e0,e1,v)=>{const t=Math.max(0,Math.min(1,(v-e0)/Math.max(1e-6,e1-e0)));return t*t*(3-2*t)};return s(cut.endInsetM,cut.endInsetM+F,along)*s(cut.endInsetM,cut.endInsetM+F,cut.lengthM-along)*s(cut.lowM,cut.lowM+F,signed)*(1-s(cut.highM-F,cut.highM,signed))}
 function buildTerrain(){disposeObject(terrainMesh);const size=30,segments=150,positions=[],colors=[],indices=[],base=new THREE.Color('#343c37'),cut=lastPlan?.terrainCut;for(let iz=0;iz<=segments;iz+=1)for(let ix=0;ix<=segments;ix+=1){const x=-size/2+size*ix/segments,z=-size/2+size*iz/segments,rawY=currentHeight(x,z),y=cut?rawY-(rawY-(baseHeight(x,z)-.5))*cutFactor(x,z,cut):rawY;positions.push(x,y,z);colors.push(base.r,base.g,base.b)}for(let iz=0;iz<segments;iz+=1)for(let ix=0;ix<segments;ix+=1){const a=iz*(segments+1)+ix,b=a+1,d=(iz+1)*(segments+1)+ix,c=d+1;indices.push(a,d,b,b,d,c)}const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.setIndex(indices);geometry.computeVertexNormals();terrainMesh=new THREE.Mesh(geometry,terrainMaterial);terrainMesh.receiveShadow=true;scene.add(terrainMesh);terrainMesh.renderOrder=-2}
@@ -107,16 +113,82 @@ function buildContacts(){contactGroup.clear();if(fields.debug.value!=='contact'|
 function updateDebug(){if(!compiled)return;const debug=fields.debug.value;const wire=debug==='mesh'||debug==='topo';stoneMaterial.wireframe=rockMaterial.wireframe=wire;stoneMaterial.needsUpdate=rockMaterial.needsUpdate=true;weightsMaterial.wireframe=false;compiled.group.traverse(object=>{if(!object.isMesh)return;const role=object.userData.semanticRole;if(role==='ground-transition'){object.visible=debug==='contact'||debug==='topo';return}if(debug==='weights')object.material=weightsMaterial;else object.material=object.isInstancedMesh?rockMaterial:stoneMaterial});if(pathLine)pathLine.visible=editing||debug!=='final';handles.visible=!drawing&&editing;const editButton=document.getElementById('editPath');editButton.classList.toggle('active',editing);editButton.textContent=editing?'Finish editing':'Edit boundary';buildContacts();requestRender()}
 function labels(){document.getElementById('widthValue').textContent=`${Number(fields.width.value).toFixed(1)} m`;document.getElementById('densityValue').textContent=`${Math.round(Number(fields.density.value)*100)}%`;document.getElementById('scaleValue').textContent=`${Math.round(Number(fields.scale.value)*100)}%`;document.getElementById('embeddingValue').textContent=`${Math.round(Number(fields.embedding.value)*100)}%`;document.getElementById('cliffHeightValue').textContent=`${Number(fields.cliffHeight.value).toFixed(2)} m`;document.getElementById('seedValue').textContent=fields.seed.value;const cliff=preset==='cliff';document.getElementById('widthWrap').hidden=cliff;document.getElementById('densityWrap').hidden=cliff;document.getElementById('scaleWrap').hidden=cliff;document.getElementById('embeddingWrap').hidden=cliff;document.getElementById('cliffHeightWrap').hidden=!cliff;document.getElementById('crownWrap').hidden=!cliff}
 function auditText(metrics){if(metrics.boundaryEdges==null)return'';const volume=metrics.signedVolume?`${metrics.signedVolume>0?'+':''}${metrics.signedVolume.toFixed(1)} m³`:'—';return` · ${metrics.boundaryEdges} boundary edges · ${metrics.degenerateTriangles} degenerate · ${metrics.windingConflicts??0} winding conflicts · V ${volume}`}
-function rebuild(tier=fields.quality.value,phase='final',generation=buildGeneration){if(!materialLibrary||generation!==buildGeneration)return;stoneMaterial=materialLibrary.get(fields.rockType.value,'cliff');rockMaterial=materialLibrary.get(fields.rockType.value,'rocks');labels();const path=activePath();currentHeight=terrainFunction(path);const started=performance.now(),requested=fields.quality.value,planQuality=requested==='showcase'?'high':requested;const nextPlan=planLandscaping({centerline:path,heightAt:currentHeight,closed:true,settings:{mode:'brush',preset,widthM:Number(fields.width.value),density:Number(fields.density.value),scale:Number(fields.scale.value),embedding:Number(fields.embedding.value),cliffHeightM:Number(fields.cliffHeight.value),cliffBody:'edge',side:'left',quality:planQuality,seed:Number(fields.seed.value)}});const quality=QUALITY[tier];const nextCompiled=compileLandscaping(THREE,nextPlan,{stoneMaterial,rockMaterial,groundMaterial,heightAt:currentHeight,rockType:fields.rockType.value,crownMode:fields.crown.value,cellM:quality.cell,targetTriangles:quality.target});if(generation!==buildGeneration){nextCompiled.dispose();return}const previous=compiled;compiled=nextCompiled;lastPlan=nextPlan;scene.add(compiled.group);if(previous){scene.remove(previous.group);previous.dispose()}buildTerrain();buildHandles();buildPathLine(path);buildContacts();const buildMs=performance.now()-started;lastMetrics={...compiled.metrics,buildMs,tier,phase};const diagnostic=lastPlan.diagnostics,status=document.getElementById('planStatus');status.classList.toggle('warn',!diagnostic.valid);const bodyText=preset==='cliff'?'watertight cliff mass':`rock-field union · ${diagnostic.counts.anchors+diagnostic.counts.fillers} bodies · ${compiled.metrics.instances} talus instances`;const refining=phase==='preview'&&requested!=='low'?' · preview visible, refining …':'';status.textContent=diagnostic.valid?`${fields.rockType.options[fields.rockType.selectedIndex].text} · ${tier==='low'?'Preview':tier} · metric triplanar V5 · ${bodyText}${auditText(compiled.metrics)}${refining}`:`Edge case detected · ${diagnostic.warnings.join(' · ')}`;document.getElementById('metrics').textContent=`${compiled.metrics.drawCalls} draws · ${compiled.metrics.triangles.toLocaleString('en-US')} triangles · ${(compiled.metrics.cellM*100).toFixed(0)} cm cell · ${buildMs.toFixed(0)} ms${compiled.metrics.bounds?` · ${compiled.metrics.bounds.x}×${compiled.metrics.bounds.y}×${compiled.metrics.bounds.z} m`:''}`;lastBuildAt=performance.now();window.__landscapeQa={plan:lastPlan,metrics:lastMetrics,setView:applyView,setLight:value=>{fields.light.value=String(value);applyLight()},rebuild:runBuildCycle,setDebug:value=>{fields.debug.value=value;updateDebug()},getPath:()=>authored.map(point=>({...point})),getCamera:()=>camera.position.toArray(),isEditing:()=>editing,projection:'metric-triplanar-v5',externalScan:false,requestedQuality:requested,activeQuality:tier,phase,ready:false};updateDebug();requestRender();const qa=window.__landscapeQa;let warm=0;const warmup=()=>{renderer.render(scene,camera);warm+=1;const gl=renderer.getContext();const px=new Uint8Array(4);gl.readPixels((gl.drawingBufferWidth/2)|0,(gl.drawingBufferHeight/2)|0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);const blank=(px[0]===0&&px[1]===0&&px[2]===0)||(px[0]>249&&px[1]>249&&px[2]>249)||(Math.abs(px[0]-217)<7&&Math.abs(px[1]-223)<7&&Math.abs(px[2]-216)<7);if(blank&&warm<14)requestAnimationFrame(warmup);else{qa.ready=true;finishInitialLoad()}};requestAnimationFrame(warmup)}
-function runBuildCycle(){clearTimeout(rebuildTimer);clearTimeout(refineTimer);const generation=++buildGeneration,requested=fields.quality.value;if(requested==='low'){rebuild('low','final',generation);return}rebuild('low','preview',generation);refineTimer=setTimeout(()=>{if(generation===buildGeneration)rebuild(requested,'final',generation)},600)}
-function scheduleRebuild(){clearTimeout(rebuildTimer);clearTimeout(refineTimer);const wait=Math.max(60,140-(performance.now()-lastBuildAt));rebuildTimer=setTimeout(runBuildCycle,wait)}
+function rebuild(tier=fields.quality.value,phase='final',generation=buildGeneration){if(!materialLibrary||generation!==buildGeneration)return;
+  stoneMaterial=materialLibrary.get(fields.rockType.value,'cliff');
+  rockMaterial=materialLibrary.get(fields.rockType.value,'rocks');
+  labels();
+  const path=activePath();
+  currentHeight=terrainFunction(path);
+  const started=performance.now(),requested=fields.quality.value,planQuality=requested==='showcase'?'high':requested;
+  const nextPlan=planLandscaping({centerline:path,heightAt:currentHeight,closed:true,settings:{mode:'brush',preset,widthM:Number(fields.width.value),density:Number(fields.density.value),scale:Number(fields.scale.value),embedding:Number(fields.embedding.value),cliffHeightM:Number(fields.cliffHeight.value),cliffBody:'edge',side:'left',quality:planQuality,seed:Number(fields.seed.value)}});
+  const quality=QUALITY[tier];
+  const options={rockType:fields.rockType.value,crownMode:fields.crown.value,cellM:quality.cell,targetTriangles:quality.target,includeGround:true};
+  const materials={stoneMaterial,rockMaterial,groundMaterial};
+  if(phase==='final'&&tier!=='low'){
+    refinement.build({plan:nextPlan,terrain:fields.terrain.value,options}).then(result=>{
+      if(!result||generation!==buildGeneration)return;
+      install(hydrateLandscaping(THREE,result,materials));
+    }).catch(error=>{
+      if(generation!==buildGeneration)return;
+      const status=document.getElementById('planStatus');
+      status.classList.add('warn');
+      status.textContent=`Preview retained · refinement failed: ${error.message}`;
+      if(window.__landscapeQa)window.__landscapeQa.refinementError=error.message;
+      console.error(error);
+    });
+    return;
+  }
+  install(compileLandscaping(THREE,nextPlan,{...options,...materials,heightAt:currentHeight}));
+  function install(nextCompiled){
+    if(generation!==buildGeneration){nextCompiled.dispose();return}
+    const previous=compiled;
+    compiled=nextCompiled;
+    lastPlan=nextPlan;
+    scene.add(compiled.group);
+    if(previous){scene.remove(previous.group);
+    previous.dispose()}
+    buildTerrain();
+    buildHandles();
+    buildPathLine(path);
+    buildContacts();
+    const buildMs=performance.now()-started;
+    lastMetrics={...compiled.metrics,buildMs,tier,phase};
+    const diagnostic=lastPlan.diagnostics,status=document.getElementById('planStatus');
+    status.classList.toggle('warn',!diagnostic.valid);
+    const bodyText=preset==='cliff'?'watertight cliff mass':`rock-field union · ${diagnostic.counts.anchors+diagnostic.counts.fillers} bodies · ${compiled.metrics.instances} talus instances`;
+    const refining=phase==='preview'&&requested!=='low'?' · preview visible, refining …':'';
+    status.textContent=diagnostic.valid?`${fields.rockType.options[fields.rockType.selectedIndex].text} · ${tier==='low'?'Preview':tier} · metric triplanar V5 · ${bodyText}${auditText(compiled.metrics)}${refining}`:`Edge case detected · ${diagnostic.warnings.join(' · ')}`;
+    document.getElementById('metrics').textContent=`${compiled.metrics.drawCalls} draws · ${compiled.metrics.triangles.toLocaleString('en-US')} triangles · ${(compiled.metrics.cellM*100).toFixed(0)} cm cell · ${buildMs.toFixed(0)} ms${compiled.metrics.bounds?` · ${compiled.metrics.bounds.x}×${compiled.metrics.bounds.y}×${compiled.metrics.bounds.z} m`:''}`;
+    lastBuildAt=performance.now();
+    window.__landscapeQa={plan:lastPlan,metrics:lastMetrics,setView:applyView,setLight:value=>{fields.light.value=String(value);
+    applyLight()},rebuild:runBuildCycle,setDebug:value=>{fields.debug.value=value;
+    updateDebug()},getPath:()=>authored.map(point=>({...point})),getCamera:()=>camera.position.toArray(),isEditing:()=>editing,projection:'metric-triplanar-v5',externalScan:false,requestedQuality:requested,activeQuality:tier,phase,ready:false};
+    updateDebug();
+    requestRender();
+    const qa=window.__landscapeQa;
+    let warm=0;
+    const warmup=()=>{renderer.render(scene,camera);
+    warm+=1;
+    const gl=renderer.getContext();
+    const px=new Uint8Array(4);
+    gl.readPixels((gl.drawingBufferWidth/2)|0,(gl.drawingBufferHeight/2)|0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
+    const blank=(px[0]===0&&px[1]===0&&px[2]===0)||(px[0]>249&&px[1]>249&&px[2]>249)||(Math.abs(px[0]-217)<7&&Math.abs(px[1]-223)<7&&Math.abs(px[2]-216)<7);
+    if(blank&&warm<14)requestAnimationFrame(warmup);
+    else{qa.ready=true;
+    finishInitialLoad()}};
+      requestAnimationFrame(warmup);
+  }
+}
+function invalidateBuild(){++buildGeneration;refinement.cancel();clearTimeout(rebuildTimer);clearTimeout(refineTimer)}
+function runBuildCycle(){invalidateBuild();const generation=buildGeneration,requested=fields.quality.value;if(requested==='low'){rebuild('low','final',generation);return}rebuild('low','preview',generation);refineTimer=setTimeout(()=>{if(generation===buildGeneration)rebuild(requested,'final',generation)},600)}
+function scheduleRebuild(){invalidateBuild();const wait=Math.max(60,140-(performance.now()-lastBuildAt));rebuildTimer=setTimeout(runBuildCycle,wait)}
 function pathBounds(){const path=activePath();let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity,minY=Infinity,maxY=-Infinity;for(const point of path){const y=currentHeight(point.x,point.z);minX=Math.min(minX,point.x);maxX=Math.max(maxX,point.x);minZ=Math.min(minZ,point.z);maxZ=Math.max(maxZ,point.z);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}if(!path.length)return{cx:0,cz:0,cy:.4,span:8,height:1};const raised=preset==='cliff'?Number(fields.cliffHeight.value)*.45:0;return{cx:(minX+maxX)*.5,cz:(minZ+maxZ)*.5,cy:(minY+maxY)*.5+.25+raised,span:Math.max(4,maxX-minX,maxZ-minZ),height:Math.max(1,maxY-minY,Number(fields.cliffHeight.value))}}
 function applyView(view=activeView){activeView=view;document.querySelectorAll('[data-view]').forEach(button=>button.classList.toggle('active',button.dataset.view===view));const bounds=pathBounds(),normalSide=-1,target=new THREE.Vector3(bounds.cx,bounds.cy,bounds.cz),span=bounds.span,height=bounds.height,solidCliff=preset==='cliff';const poses={design:[bounds.cx+span*.92,bounds.cy+height+span*.58,bounds.cz+normalSide*span*1.02],near:solidCliff?[bounds.cx+span*.56,bounds.cy+height*.44+span*.22,bounds.cz+normalSide*span*.66]:[bounds.cx+span*.34,bounds.cy+height*.34+span*.14,bounds.cz+normalSide*span*.42],side:[bounds.cx,bounds.cy+height*.42+span*.18,bounds.cz+normalSide*span*1.12],top:[bounds.cx,bounds.cy+height+span*1.75,bounds.cz+.01],far:[bounds.cx+span*1.08,bounds.cy+height+span*.72,bounds.cz+normalSide*span*1.25]};camera.position.set(...poses[view]);controls.target.copy(target);camera.lookAt(target);controls.update();requestRender()}
 function refreshButtons(){document.querySelectorAll('[data-preset]').forEach(button=>button.classList.toggle('active',button.dataset.preset===preset))}
 function changePreset(next){preset=next;authored=presetPath();refreshButtons();runBuildCycle();applyView(activeView)}
 
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0),hit=new THREE.Vector3();function setPointerRay(event){const rect=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera)}function worldPoint(event){setPointerRay(event);return raycaster.ray.intersectPlane(plane,hit)?{x:hit.x,z:hit.z}:null}function handleHit(){return editing&&handles.visible?raycaster.intersectObjects(handles.children,false)[0]:null}function rockHit(){return compiled?raycaster.intersectObject(compiled.group,true).find(entry=>entry.object.isMesh&&entry.object.userData.semanticRole!=='ground-transition'):null}
-renderer.domElement.addEventListener('pointerdown',event=>{setPointerRay(event);if(!drawing){const target=handleHit();if(target){dragIndex=target.object.userData.index;controls.enabled=false;renderer.domElement.dataset.dragging='handle';renderer.domElement.setPointerCapture(event.pointerId);return}if(rockHit()){editing=true;selectionPointerId=event.pointerId;controls.enabled=false;renderer.domElement.setPointerCapture(event.pointerId);updateDebug();return}if(editing){editing=false;updateDebug()}return}authored=[];const point=worldPoint(event);if(point)authored.push(point);renderer.domElement.setPointerCapture(event.pointerId)});
+renderer.domElement.addEventListener('pointerdown',event=>{setPointerRay(event);if(!drawing){const target=handleHit();if(target){dragIndex=target.object.userData.index;controls.enabled=false;renderer.domElement.dataset.dragging='handle';renderer.domElement.setPointerCapture(event.pointerId);return}if(rockHit()){editing=true;selectionPointerId=event.pointerId;controls.enabled=false;renderer.domElement.setPointerCapture(event.pointerId);updateDebug();return}if(editing){editing=false;updateDebug()}return}invalidateBuild();authored=[];const point=worldPoint(event);if(point)authored.push(point);renderer.domElement.setPointerCapture(event.pointerId)});
 renderer.domElement.addEventListener('pointermove',event=>{if(dragIndex>=0){const point=worldPoint(event);if(point){authored[dragIndex]=point;scheduleRebuild()}return}if(!drawing){setPointerRay(event);renderer.domElement.dataset.hover=handleHit()?'handle':rockHit()?'rock':'';return}if(!renderer.domElement.hasPointerCapture(event.pointerId))return;const point=worldPoint(event),previous=authored.at(-1);if(point&&(!previous||Math.hypot(point.x-previous.x,point.z-previous.z)>.22)){authored.push(point);buildPathLine(authored);requestRender()}});
 renderer.domElement.addEventListener('pointerup',event=>{if(dragIndex>=0){dragIndex=-1;controls.enabled=true;delete renderer.domElement.dataset.dragging;renderer.domElement.releasePointerCapture(event.pointerId);runBuildCycle();return}if(selectionPointerId===event.pointerId){selectionPointerId=-1;controls.enabled=true;renderer.domElement.releasePointerCapture(event.pointerId);return}if(!drawing)return;renderer.domElement.releasePointerCapture(event.pointerId);if(authored.length<3)authored=presetPath();else{const tolerance=Math.max(.10,Math.min(.30,Number(fields.width.value)*.035)),simplified=simplifyPath(authored,tolerance);if(simplified.length>=3)authored=simplified}drawing=false;editing=true;document.body.classList.remove('drawing');document.getElementById('draw').classList.remove('active');document.getElementById('draw').textContent='Draw new area';controls.enabled=true;runBuildCycle()});
 renderer.domElement.addEventListener('pointercancel',event=>{if(renderer.domElement.hasPointerCapture(event.pointerId))renderer.domElement.releasePointerCapture(event.pointerId);dragIndex=-1;selectionPointerId=-1;controls.enabled=true;delete renderer.domElement.dataset.dragging});
